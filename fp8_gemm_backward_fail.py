@@ -1,11 +1,22 @@
-import sys
 import tensorflow as tf
 from tensorflow.python.framework import dtypes
 
 M,N,K=64,32,128
 
-input_shape = [M, K]
-kernel_shape = [K, N]
+transa, transb= False, True
+
+if not transa and not transb:
+  input_shape = [M, K]
+  kernel_shape = [K, N]
+elif transa and transb:
+  input_shape = [K, M]  
+  kernel_shape = [N, K]
+elif transa and not transb:
+  input_shape = [K, M]  
+  kernel_shape = [K, N]
+else:
+  input_shape = [M, K]  
+  kernel_shape = [N, K]
 
 inputs = tf.random.normal(shape=input_shape)
 kernel = tf.random.normal(shape=kernel_shape)
@@ -48,52 +59,23 @@ def qdq_and_update(x, dtype, scale_var):
   update_scale(x, dtype, scale_var)
   return qx
 
-@tf.custom_gradient
 def in_qdq(input):
   """Quantize-dequantize both the input and the input's gradient."""
   input_scale=tf.constant(2.0)
   input_grad_scale=tf.constant(0.5)
   qin = qdq_and_update(input, FAKE_E4M3, input_scale)
-  def grad(in_grad):
-    in_grad_ret = qdq_and_update(in_grad, FAKE_E4M3, input_grad_scale)
-    return in_grad_ret
+  return qin
 
-  return qin,grad
-
-@tf.custom_gradient
 def ker_qdq(input):
   """Quantize-dequantize both the input and the input's gradient."""
   ker_scale=tf.constant(3.0)
   qker = qdq_and_update(input, FAKE_E4M3, ker_scale)
-  def grad(ker_grad):
-      return ker_grad
-  return qker, grad
+  return qker
 
-@tf.custom_gradient
-def output_qdq(output):
-  """Quantize-dequantize both the output and the output's gradient, only if the next layer(in fwd sense) doesn't support fp8."""
-  output_scale=tf.constant(1.6)
-  output = qdq_and_update(output, FAKE_E4M3, output_scale)
-  def grad(out_grad):
-    output_grad_scale=tf.constant(1.2)
-    return qdq_and_update(
-        out_grad, FAKE_E4M3, output_grad_scale)
-  return output, grad
-
-label=tf.random.normal([M,N])
 @tf.function
 def test_me(a, b):
   a = in_qdq(a)
   b = ker_qdq(b)
-  with tf.GradientTape() as tape:
-    tape.watch(a)
-    out = tf.matmul(a,b)
-    out = output_qdq(out)
-    out = tf.keras.activations.relu(out)
-    loss = tf.reduce_sum(out-label)
-
-  dx = tape.gradient(loss,[a])
-  return loss,dx
-
-loss,dx = test_me(inputs, kernel)
-print(loss, dx)
+  return tf.matmul(a,b, transa, transb)
+y = test_me(inputs, kernel)
+print(y)
