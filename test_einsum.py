@@ -1,6 +1,6 @@
 import tensorflow as tf
 from keras.layers import core
-import EinsumDenseFp8 import as customized
+import EinsumDenseFp8 as customized
 
 tf.keras.backend.clear_session()
 tf.config.optimizer.set_jit(True) # Enable XLA.

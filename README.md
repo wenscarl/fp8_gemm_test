@@ -10,3 +10,7 @@ TF_DUMP_GRAPH_PREFIX=/tmp/generated TF_XLA_FLAGS="--tf_xla_clustering_debug --tf
 
 
 grep "__cublas$lt$matmul$f8" /tmp/generated/*
+
+
+## To reproduce cublaslt matmul error
+CUBLASLT_LOG_LEVEL=5 XLA_FLAGS="--xla_gpu_enable_cublaslt=true " python test_einsum.py
