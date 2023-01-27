@@ -3,23 +3,23 @@ from tensorflow.python.framework import dtypes
 
 M,N,K=64,32,128
 
-transa, transb= False, True
+def gen_inputs(transa, transb):
+  if not transa and not transb:
+    input_shape = [M, K]
+    kernel_shape = [K, N]
+  elif transa and transb:
+    input_shape = [K, M]
+    kernel_shape = [N, K]
+  elif transa and not transb:
+    input_shape = [K, M]
+    kernel_shape = [K, N]
+  else:
+    input_shape = [M, K]
+    kernel_shape = [N, K]
 
-if not transa and not transb:
-  input_shape = [M, K]
-  kernel_shape = [K, N]
-elif transa and transb:
-  input_shape = [K, M]  
-  kernel_shape = [N, K]
-elif transa and not transb:
-  input_shape = [K, M]  
-  kernel_shape = [K, N]
-else:
-  input_shape = [M, K]  
-  kernel_shape = [N, K]
-
-inputs = tf.random.normal(shape=input_shape)
-kernel = tf.random.normal(shape=kernel_shape)
+  inputs = tf.random.normal(shape=input_shape)
+  kernel = tf.random.normal(shape=kernel_shape)
+  return inputs, kernel
 
 FAKE_E4M3 = dtypes.float8_e4m3fn
 FAKE_E5M2 = dtypes.float8_e5m2
@@ -27,6 +27,7 @@ FAKE_E5M2 = dtypes.float8_e5m2
 E4M3_MAX = 448.
 E5M2_MAX = 57344.
 AMAX_HIS_LEN = 16
+
 
 def get_fp8_max(fake_dtype):
   if fake_dtype == FAKE_E4M3:
@@ -72,10 +73,19 @@ def ker_qdq(input):
   qker = qdq_and_update(input, FAKE_E4M3, ker_scale)
   return qker
 
-@tf.function
-def test_me(a, b):
-  a = in_qdq(a)
-  b = ker_qdq(b)
-  return tf.matmul(a,b, transa, transb)
-y = test_me(inputs, kernel)
-print(y)
+
+@tf.function(jit_compile=True)
+def test_me():
+  outs = []
+  for transa in [False, True]:
+    for transb in [False, True]:
+      a, b = gen_inputs(transa, transb)
+      print("Begin testing case<transa,transb>: <%r,%r>!" % (transa, transb))
+      a = in_qdq(a)
+      b = ker_qdq(b)
+      outs.append(tf.matmul(a,b, transa, transb))
+      print("case<transa,transb>: <%r,%r> pass!" % (transa, transb))
+  return outs
+
+outs = test_me()
+print(outs)
