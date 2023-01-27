@@ -75,17 +75,16 @@ def ker_qdq(input):
 
 
 @tf.function(jit_compile=True)
-def test_me():
-  outs = []
-  for transa in [False, True]:
-    for transb in [False, True]:
-      a, b = gen_inputs(transa, transb)
-      print("Begin testing case<transa,transb>: <%r,%r>!" % (transa, transb))
-      a = in_qdq(a)
-      b = ker_qdq(b)
-      outs.append(tf.matmul(a,b, transa, transb))
-      print("case<transa,transb>: <%r,%r> pass!" % (transa, transb))
-  return outs
+def test_me(transa, transb):
+  a, b = gen_inputs(transa, transb)
+  a = in_qdq(a)
+  b = ker_qdq(b)
+  y = tf.matmul(a,b, transa, transb)
+  return y
 
-outs = test_me()
-print(outs)
+for transa in [False, True]:
+  for transb in [False, True]:
+    print("Begin testing case<transa,transb>: <%r,%r>!" % (transa, transb))
+    y = test_me(transa, transb)
+    print(y)
+    print("case<transa,transb>: <%r,%r> pass!" % (transa, transb))
